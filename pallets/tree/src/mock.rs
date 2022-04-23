@@ -1,5 +1,5 @@
-use crate as pallet_template;
-use frame_support::traits::{ConstU16, ConstU64};
+use crate as pallet_tree;
+use frame_support::traits::{ConstU16, ConstU64, GenesisBuild};
 use frame_system as system;
 use sp_core::H256;
 use sp_runtime::{
@@ -18,7 +18,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		TemplateModule: pallet_template::{Pallet, Call, Storage, Event<T>},
+		Tree: pallet_tree::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -49,11 +49,13 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_template::Config for Test {
+impl pallet_tree::Config for Test {
 	type Event = Event;
 }
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	let mut storage = system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	pallet_tree::GenesisConfig::<Test>::default().assimilate_storage(&mut storage).unwrap();
+	storage.into()
 }

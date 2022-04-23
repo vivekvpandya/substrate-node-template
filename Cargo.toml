@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "node",
-    "pallets/template",
+    "pallets/garbage_collecter",
+	"pallets/tree",
     "runtime",
 ]
 [profile.release]
