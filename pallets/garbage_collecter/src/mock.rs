@@ -1,16 +1,16 @@
-use crate::{self as pallet_garbage_collecter, traits::{Cleanable, CleanableAction}};
+use crate::{self as pallet_garbage_collecter};
 use frame_support::{
 	parameter_types,
+	traits::{ConstU16, ConstU64, EqualPrivilegeOnly},
 	weights::Weight,
-traits::{ConstU16, ConstU64, EqualPrivilegeOnly}
 };
 use frame_system as system;
+use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
-use frame_system::EnsureRoot;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -25,6 +25,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		GarbageCollecter: pallet_garbage_collecter::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+		Tree: pallet_tree::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -55,9 +56,9 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
- parameter_types! {
-	pub MaximumSchedulerWeight: Weight = 10000_u64;
- }
+parameter_types! {
+   pub MaximumSchedulerWeight: Weight = 10000_u64;
+}
 
 impl pallet_scheduler::Config for Test {
 	type Event = Event;
@@ -78,6 +79,10 @@ impl pallet_garbage_collecter::Config for Test {
 	type CleanupCall = Call;
 	type PalletsOrigin = OriginCaller;
 	type Scheduler = Scheduler;
+}
+
+impl pallet_tree::Config for Test {
+	type Event = Event;
 }
 
 // Build genesis storage according to the mock runtime.

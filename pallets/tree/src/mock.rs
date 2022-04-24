@@ -56,6 +56,8 @@ impl pallet_tree::Config for Test {
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = system::GenesisConfig::default().build_storage::<Test>().unwrap();
-	pallet_tree::GenesisConfig::<Test>::default().assimilate_storage(&mut storage).unwrap();
+	pallet_tree::GenesisConfig::<Test>::default()
+		.assimilate_storage(&mut storage)
+		.unwrap();
 	storage.into()
 }

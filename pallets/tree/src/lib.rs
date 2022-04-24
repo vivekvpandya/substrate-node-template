@@ -36,7 +36,8 @@ pub mod pallet {
 	pub type Height<T> = StorageValue<_, u32, ValueQuery>;
 	#[pallet::storage]
 	#[pallet::getter(fn last_watering_time)]
-	pub type LastWateringTime<T: Config> = StorageValue<_, <T as frame_system::Config>::BlockNumber, ValueQuery>;
+	pub type LastWateringTime<T: Config> =
+		StorageValue<_, <T as frame_system::Config>::BlockNumber, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -51,11 +52,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(10_000)]
-		pub fn cleanup(
-			origin: OriginFor<T>
-		) -> DispatchResult {
-			// ensure root origin
-			ensure_root(origin)?;
+		pub fn cleanup(origin: OriginFor<T>) -> DispatchResult {
+			let _ = ensure_root(origin)?;
 			if <Self as Cleanable>::cleanable() {
 				<Self as CleanableAction>::cleanable_action();
 			}
@@ -63,9 +61,8 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(10_000)]
-		pub fn water(
-				origin: OriginFor<T>,
-			) -> DispatchResult {
+		pub fn water(origin: OriginFor<T>) -> DispatchResult {
+			let _ = ensure_root(origin)?;
 			let h = Height::<T>::get();
 			let h = h.saturating_add(5);
 			Height::<T>::set(h);
@@ -78,11 +75,7 @@ pub mod pallet {
 		fn cleanable() -> bool {
 			let current_block_number = <frame_system::Pallet<T>>::block_number();
 			let last_watering_block = LastWateringTime::<T>::get();
-			if current_block_number > (last_watering_block + 5_u32.into()) {
-				true
-			} else {
-				false
-			}
+			current_block_number > (last_watering_block + 5_u32.into())
 		}
 	}
 
@@ -96,18 +89,15 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	pub struct GenesisConfig<T :Config> {
-		pub last_watering_block : T::BlockNumber,
+	pub struct GenesisConfig<T: Config> {
+		pub last_watering_block: T::BlockNumber,
 		pub height: u32,
 	}
 
 	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
-			GenesisConfig::<T> {
-				last_watering_block: 0_u32.into(),
-				height: 5_u32,
-			}
+			GenesisConfig::<T> { last_watering_block: 0_u32.into(), height: 5_u32 }
 		}
 	}
 
@@ -121,14 +111,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(n: T::BlockNumber) -> Weight {
-			let weight : Weight = 0_u32.into();
+		fn offchain_worker(_n: T::BlockNumber) {
 			if <Self as Cleanable>::cleanable() {
 				//use sp_runtime::offchain::http;
 				// send some data here
 			}
-			weight
 		}
 	}
-
 }

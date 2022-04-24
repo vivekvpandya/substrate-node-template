@@ -4017,6 +4017,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-scheduler",
+ "pallet-tree",
  "parity-scale-codec",
  "scale-info",
  "sp-core",

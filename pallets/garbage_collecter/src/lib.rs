@@ -1,9 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::LockIdentifier;
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/v3/runtime/frame>
 pub use pallet::*;
 
 #[cfg(test)]
@@ -17,16 +13,16 @@ mod benchmarking;
 
 pub mod traits;
 
-
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{pallet_prelude::*, dispatch::Dispatchable, traits::OriginTrait};
+	use frame_support::{
+		dispatch::Dispatchable,
+		pallet_prelude::*,
+		traits::{schedule::Named as ScheduleNamed, LockIdentifier},
+	};
 	use frame_system::pallet_prelude::*;
-	use sp_std::vec::Vec;
 	use sp_std::boxed::Box;
-	use frame_support::traits::schedule::Named as ScheduleNamed;
-	use frame_support::traits::LockIdentifier;
-	const GC_ID : LockIdentifier = *b"garbagec";
+	const GC_ID: LockIdentifier = *b"garbagec";
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -36,31 +32,28 @@ pub mod pallet {
 		type CleanupCall: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
 		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 		type Scheduler: ScheduleNamed<Self::BlockNumber, Self::CleanupCall, Self::PalletsOrigin>;
-
 	}
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
-	// The pallet's runtime storage items.
-	// https://docs.substrate.io/v3/runtime/storage
 	// #[pallet::storage]
 	// #[pallet::getter(fn something)]
 	// Learn more about declaring storage items:
 	// https://docs.substrate.io/v3/runtime/storage#declaring-storage-items
 	// pub type Something<T> = StorageValue<_, u32>;
 
-	// Pallets use events to inform users when important changes are made.
-	// https://docs.substrate.io/v3/runtime/events-and-errors
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		CleanupCallScheduled { index: u64, priority: u64 },
 	}
 
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
+		SchedulerError,
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -87,7 +80,12 @@ pub mod pallet {
 				63,
 				frame_system::RawOrigin::Root.into(),
 				*call,
-			);
+			)
+			.map_err(|_| Error::<T>::SchedulerError)?;
+			Self::deposit_event(Event::<T>::CleanupCallScheduled {
+				index: index.into(),
+				priority: 63,
+			});
 			Ok(())
 		}
 	}
