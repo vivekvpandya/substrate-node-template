@@ -16,9 +16,10 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{log, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 	use pallet_garbage_collecter::traits::{Cleanable, CleanableAction};
+	use sp_runtime::offchain::StorageKind;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -47,7 +48,9 @@ pub mod pallet {
 	}
 
 	#[pallet::error]
-	pub enum Error<T> {}
+	pub enum Error<T> {
+		OcwError,
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -88,6 +91,48 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> Pallet<T> {
+		fn send_data<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, Error<T>> {
+			// Load http URI from offchain storage
+			// this should have been configured on start up by passing e.g. `--http-uri`
+			// e.g. `--http-uri=http://localhost:8545`
+			// if above method does not work then perhpas use offchain_localStorageSet RPC endpoint
+			// or hardcode value here
+			let http_uri = if let Some(value) =
+				sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, b"HTTP_URI")
+			{
+				value
+			} else {
+				return Err(Error::<T>::OcwError)
+			};
+			let http_uri = core::str::from_utf8(&http_uri).map_err(|_| Error::<T>::OcwError)?;
+			const HEADER_CONTENT_TYPE: &str = "application/json";
+			let body =
+				serde_json::to_string::<R>(&request_body).map_err(|_| Error::<T>::OcwError)?;
+			let raw_body = body.as_bytes();
+			let request = sp_runtime::offchain::http::Request::post(http_uri, vec![raw_body]);
+			let timeout = sp_io::offchain::timestamp()
+				.add(sp_runtime::offchain::Duration::from_millis(3000_u64));
+			let pending_req = request
+				.add_header("Content-Type", HEADER_CONTENT_TYPE)
+				.add_header("Content-Length", &raw_body.len().to_string())
+				.deadline(timeout)
+				.send()
+				.map_err(|_| Error::<T>::OcwError)?;
+
+			// returning value is Result of Result so need to unwrap twice with ? operator.
+			let response = pending_req
+				.try_wait(timeout)
+				.map_err(|_| Error::<T>::OcwError)?
+				.map_err(|_| Error::<T>::OcwError)?;
+			if response.code != 200 {
+				return Err(Error::<T>::OcwError)
+			}
+
+			Ok(response.body().collect::<Vec<u8>>())
+		}
+	}
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub last_watering_block: T::BlockNumber,
@@ -113,8 +158,12 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_n: T::BlockNumber) {
 			if <Self as Cleanable>::cleanable() {
-				//use sp_runtime::offchain::http;
-				// send some data here
+				if let Ok(response) = Self::send_data(Self::height()) {
+					log::info!("SUCCESS: send tree heigt to server");
+					log::info!("Response: {:?}", response);
+				} else {
+					log::error!("FAILURE: send tree heigt to server");
+				}
 			}
 		}
 	}
