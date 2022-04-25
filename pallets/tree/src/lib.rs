@@ -19,7 +19,9 @@ pub mod pallet {
 	use frame_support::{log, pallet_prelude::*};
 	use frame_system::pallet_prelude::*;
 	use pallet_garbage_collecter::traits::{Cleanable, CleanableAction};
-	use sp_runtime::offchain::StorageKind;
+	use sp_runtime::offchain::{storage::StorageValueRef, StorageKind};
+
+	const OFFCAIN_INDEX_KEY: &[u8] = b"tree::storage::height";
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -85,6 +87,9 @@ pub mod pallet {
 	impl<T: Config> CleanableAction for Pallet<T> {
 		fn cleanable_action() {
 			let h = Height::<T>::get();
+			// assuming old height value needed to be sent to some http server
+			// store it in offchain index.
+			sp_io::offchain_index::set(&OFFCAIN_INDEX_KEY, &h.encode());
 			let h = h.saturating_sub(5);
 			Height::<T>::set(h);
 			Self::deposit_event(Event::<T>::HeightDecreased(h));
@@ -157,10 +162,14 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn offchain_worker(_n: T::BlockNumber) {
-			if <Self as Cleanable>::cleanable() {
-				if let Ok(response) = Self::send_data(Self::height()) {
+			// check if offchain indexing value set, then send it to http server
+			let oci_mem = StorageValueRef::persistent(&OFFCAIN_INDEX_KEY);
+			if let Ok(Some(h)) = oci_mem.get::<u32>() {
+				if let Ok(response) = Self::send_data(h) {
 					log::info!("SUCCESS: send tree heigt to server");
 					log::info!("Response: {:?}", response);
+					// clear storage
+					sp_io::offchain_index::clear(&OFFCAIN_INDEX_KEY);
 				} else {
 					log::error!("FAILURE: send tree heigt to server");
 				}
